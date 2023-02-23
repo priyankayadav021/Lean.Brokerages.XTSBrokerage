@@ -16,8 +16,9 @@
 using QuantConnect.ToolBox;
 using QuantConnect.Configuration;
 using static QuantConnect.Configuration.ApplicationParser;
+using QuantConnect.ToolBox.XTSDataDownloader;
 
-namespace QuantConnect.TemplateBrokerage.ToolBox
+namespace QuantConnect.XTSBrokerages.ToolBox
 {
     static class Program
     {
@@ -37,11 +38,11 @@ namespace QuantConnect.TemplateBrokerage.ToolBox
             var targetAppName = targetApp.ToString();
             if (targetAppName.Contains("download") || targetAppName.Contains("dl"))
             {
-                var downloader = new TemplateBrokerageDownloader();
+                var downloader = new XTSDataDownloaderProgram();
             }
             else if (targetAppName.Contains("updater") || targetAppName.EndsWith("spu"))
             {
-                new ExchangeInfoUpdater(new TemplateExchangeInfoDownloader())
+                new ExchangeInfoUpdater(new XTSExchangeInfoDownloader())
                     .Run();
             }
             else

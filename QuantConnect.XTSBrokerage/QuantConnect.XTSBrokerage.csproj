@@ -1,18 +1,18 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <TargetFramework>net6.0</TargetFramework>
-    <Product>QuantConnect.TemplateBrokerage</Product>
-    <AssemblyName>QuantConnect.TemplateBrokerage</AssemblyName>
-    <RootNamespace>QuantConnect.TemplateBrokerage</RootNamespace>
-    <AssemblyTitle>QuantConnect.TemplateBrokerage</AssemblyTitle>
+    <Product>QuantConnect.XTSBrokerage</Product>
+    <AssemblyName>QuantConnect.XTSBrokerage</AssemblyName>
+    <RootNamespace>QuantConnect.XTSBrokerage</RootNamespace>
+    <AssemblyTitle>QuantConnect.XTSBrokerage</AssemblyTitle>
     <OutputType>Library</OutputType>
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Description>QuantConnect LEAN Template Brokerage: Brokerage Template plugin for Lean</Description>
+    <Description>QuantConnect LEAN XTS Brokerage: Brokerage XTS plugin for Lean</Description>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugType>full</DebugType>
@@ -28,5 +28,17 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
     <PackageReference Include="QuantConnect.Brokerages" Version="2.5.*" />
+    <PackageReference Include="SocketIoClientDotNet" Version="1.0.2-beta1" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Symphony-XTS-API\XTSAPI\XTSAPI.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="QuantConnect.Lean.Engine">
+      <HintPath>..\..\Lean\Engine\obj\Debug\ref\QuantConnect.Lean.Engine.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy &quot;$(TargetDir)QuantConnect.XTSBrokerage.dll&quot; &quot;..\..\Lean\Launcher\bin\$(Configuration)&quot;&#xD;&#xA;copy &quot;$(TargetDir)QuantConnect.XTSBrokerage.pdb&quot; &quot;..\..\Lean\Launcher\bin\$(Configuration)&quot;" />
+  </Target>
 </Project>

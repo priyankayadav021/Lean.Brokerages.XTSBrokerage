@@ -7,14 +7,14 @@
         <TargetFramework>net6.0</TargetFramework>
         <Copyright>Copyright ©  2021</Copyright>
         <OutputPath>bin\$(Configuration)\</OutputPath>
-        <Product>QuantConnect.TemplateBrokerage.ToolBox</Product>
-        <AssemblyName>QuantConnect.TemplateBrokerage.ToolBox</AssemblyName>
-        <RootNamespace>QuantConnect.TemplateBrokerage.ToolBox</RootNamespace>
-        <AssemblyTitle>QuantConnect.TemplateBrokerage.ToolBox</AssemblyTitle>
+        <Product>QuantConnect.XTSBrokerage.ToolBox</Product>
+        <AssemblyName>QuantConnect.XTSBrokerage.ToolBox</AssemblyName>
+        <RootNamespace>QuantConnect.XTSBrokerage.ToolBox</RootNamespace>
+        <AssemblyTitle>QuantConnect.XTSBrokerage.ToolBox</AssemblyTitle>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-        <Description>QuantConnect LEAN Template Brokerage: Brokerage Template toolbox plugin for Lean</Description>
+        <Description>QuantConnect LEAN XTS Brokerage: Brokerage XTS toolbox plugin for Lean</Description>
     </PropertyGroup>
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
         <DebugType>full</DebugType>
@@ -29,5 +29,9 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="QuantConnect.ToolBox" Version="2.5.*" />
+    </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\..\Symphony-XTS-API\XTSAPI\XTSAPI.csproj" />
+      <ProjectReference Include="..\QuantConnect.XTSBrokerage\QuantConnect.XTSBrokerage.csproj" />
     </ItemGroup>
 </Project>

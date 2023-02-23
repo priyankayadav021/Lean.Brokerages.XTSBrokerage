@@ -18,18 +18,51 @@ using QuantConnect.Tests;
 using QuantConnect.Interfaces;
 using QuantConnect.Securities;
 using QuantConnect.Tests.Brokerages;
+using Moq;
+using QuantConnect.Brokerages;
+using QuantConnect.Configuration;
+using QuantConnect.Lean.Engine.DataFeeds;
+using QuantConnect.Tests.Common.Securities;
+using System;
+using Deedle;
+using QuantConnect.Data;
+using QuantConnect.Brokerages.XTS;
 
-namespace QuantConnect.TemplateBrokerage.Tests
+namespace QuantConnect.XTSBrokerages.Tests
 {
-    [TestFixture, Ignore("Not implemented")]
-    public partial class TemplateBrokerageTests : BrokerageTests
+    [TestFixture]
+    public partial class XTSBrokerageTests : BrokerageTests
     {
-        protected override Symbol Symbol { get; }
-        protected override SecurityType SecurityType { get; }
+        protected override Symbol Symbol => Symbols.SBIN;
+        /// <summary>
+        /// Gets the security type associated with the <see cref="BrokerageTests.Symbol"/>
+        /// </summary>
+        protected override SecurityType SecurityType => SecurityType.Equity;
 
         protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
         {
-            throw new System.NotImplementedException();
+            var securities = new SecurityManager(new TimeKeeper(DateTime.UtcNow, TimeZones.Kolkata))
+            {
+                { Symbol, CreateSecurity(Symbol) }
+            };
+
+            var transactions = new SecurityTransactionManager(null, securities);
+            transactions.SetOrderProcessor(new FakeOrderProcessor());
+
+            var algorithm = new Mock<IAlgorithm>();
+            algorithm.Setup(a => a.Transactions).Returns(transactions);
+            algorithm.Setup(a => a.BrokerageModel).Returns(new XTSBrokerageModel());
+            algorithm.Setup(a => a.Portfolio).Returns(new SecurityPortfolioManager(securities, transactions));
+            var interactiveSecretKey = Config.Get("xts-interactive-secretkey");
+            var interactiveapiKey = Config.Get("xts-interactive-appkey");
+            var marketApiKey = Config.Get("xts-marketdata-appkey");
+            var marketSecretKey = Config.Get("xts-marketdata-secretkey");
+            var yob = Config.Get("samco-year-of-birth");
+            var tradingSegment = Config.Get("xts-trading-segment");
+            var productType = Config.Get("xts-product-type");
+            var xts = new XtsBrokerage(tradingSegment, productType, interactiveSecretKey,
+            interactiveapiKey, marketSecretKey, marketApiKey, algorithm.Object, new AggregationManager());
+            return xts;
         }
         protected override bool IsAsync()
         {

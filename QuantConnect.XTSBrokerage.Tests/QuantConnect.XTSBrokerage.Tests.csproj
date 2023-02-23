@@ -9,10 +9,10 @@
         <Copyright>Copyright ©  2021</Copyright>
         <TestProjectType>UnitTest</TestProjectType>
         <OutputPath>bin\$(Configuration)\</OutputPath>
-        <Product>QuantConnect.TemplateBrokerage.Tests</Product>
-        <AssemblyName>QuantConnect.TemplateBrokerage.Tests</AssemblyName>
-        <RootNamespace>QuantConnect.TemplateBrokerage.Tests</RootNamespace>
-        <AssemblyTitle>QuantConnect.TemplateBrokerage.Tests</AssemblyTitle>
+        <Product>QuantConnect.XTSBrokerage.Tests</Product>
+        <AssemblyName>QuantConnect.XTSBrokerage.Tests</AssemblyName>
+        <RootNamespace>QuantConnect.XTSBrokerage.Tests</RootNamespace>
+        <AssemblyTitle>QuantConnect.XTSBrokerage.Tests</AssemblyTitle>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     </PropertyGroup>
 
@@ -28,14 +28,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\Lean\Tests\QuantConnect.Tests.csproj" />
-      <ProjectReference Include="..\QuantConnect.TemplateBrokerage.ToolBox\QuantConnect.TemplateBrokerage.ToolBox.csproj" />
-      <ProjectReference Include="..\QuantConnect.TemplateBrokerage\QuantConnect.TemplateBrokerage.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Remove="config.json" />
-        <Content Include="config.json">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
+      <ProjectReference Include="..\QuantConnect.XTSBrokerage.ToolBox\QuantConnect.XTSBrokerage.ToolBox.csproj" />
+      <ProjectReference Include="..\QuantConnect.XTSBrokerage\QuantConnect.XTSBrokerage.csproj" />
     </ItemGroup>
 </Project>
