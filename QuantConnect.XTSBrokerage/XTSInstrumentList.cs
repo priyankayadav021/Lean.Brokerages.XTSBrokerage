@@ -10,6 +10,7 @@ using QuantConnect.Logging;
 using QuantConnect.Configuration;
 using QuantConnect.Util;
 using System.Diagnostics.Contracts;
+using XTSAPI;
 
 namespace QuantConnect.XTSBrokerage
 {
@@ -94,8 +95,8 @@ namespace QuantConnect.XTSBrokerage
                 List<ContractInfo> contracts = csv.GetRecords<ContractInfo>().ToList();
                 foreach (var contract in contracts)
                 {
-                    if ((contract.ExchangeSegment == "NSECM" || contract.ExchangeSegment == "NSECO"
-                        || contract.ExchangeSegment == "NSECD" || contract.ExchangeSegment == "NSEFO")
+                    if ((contract.ExchangeSegment == (int)ExchangeSegment.NSECM || contract.ExchangeSegment == (int)ExchangeSegment.NSECO
+                        || contract.ExchangeSegment == (int)ExchangeSegment.NSECD || contract.ExchangeSegment == (int)ExchangeSegment.NSEFO)
                         && (contract.Series == "EQ" || contract.Series == "FUTSTK" || contract.Series == "OPTSTK" ||
                         contract.Series == "INDEX" || contract.Series == "FUTIDX" || contract.Series == "OPTIDX"))
                     {
@@ -374,6 +375,12 @@ namespace QuantConnect.XTSBrokerage
             {
                 throw new ArgumentException($"{WhoCalledMe.GetMethodName(1)} Invalid Symbol. failed to find the instrument {instrumentID}");
             }
+        }
+
+
+        public static ContractInfo GetListofInstrumentIDfromList(string name)
+        {
+            return _XTSTradableContractList.Where(s => s.Name == name.ToUpperInvariant()).SingleOrDefault();
         }
 
     }

@@ -38,7 +38,7 @@ namespace QuantConnect.Brokerages.XTS
         /// </summary>
         public XTSSymbolMapper()
         {
-            
+
 
         }
 
@@ -46,25 +46,25 @@ namespace QuantConnect.Brokerages.XTS
         {
             if (symbol == null || string.IsNullOrWhiteSpace(symbol.Value))
                 throw new ArgumentException("XTSSymbolMapper.GetBrokerageSymbol(): Invalid symbol " + (symbol == null ? "null" : symbol.ToString()));
-            
+
             ContractInfo contract = XTSInstrumentList.ConvertLeanSymbolToContractInfo(symbol);
-            if(contract == null) { return null; }
+            if (contract == null) { return null; }
             var contractString = JsonConvert.SerializeObject(contract);
             return contractString;
         }
 
         public Symbol GetLeanSymbol(string brokerageSymbol, SecurityType securityType, string market, DateTime expirationDate = default, decimal strike = 0, OptionRight optionRight = OptionRight.Call)
         {
-             if (string.IsNullOrWhiteSpace(brokerageSymbol))
+            if (string.IsNullOrWhiteSpace(brokerageSymbol))
                 throw new ArgumentException($"XTSSymbolMapper.GetLeanSymbol(): Invalid XTS symbol {brokerageSymbol}");
 
-            if (securityType == SecurityType.Forex || securityType == SecurityType.Cfd || securityType == SecurityType.Commodity 
+            if (securityType == SecurityType.Forex || securityType == SecurityType.Cfd || securityType == SecurityType.Commodity
                 || securityType == SecurityType.Crypto)
                 throw new ArgumentException($"XTSSymbolMapper.GetLeanSymbol(): Unsupported security type {securityType}");
 
             if (!Market.Encode(market.ToLowerInvariant()).HasValue)
                 throw new ArgumentException($"XTSSymbolMapper.GetLeanSymbol(): Invalid market {market}");
-            ContractInfo contract = XTSInstrumentList.GetContractInfoFromBrokerageSymbol(brokerageSymbol,securityType,expirationDate,strike,optionRight);
+            ContractInfo contract = XTSInstrumentList.GetContractInfoFromBrokerageSymbol(brokerageSymbol, securityType, expirationDate, strike, optionRight);
             if (contract == null)
             {
                 throw new ArgumentException($"XTSSymbolMapper.GetLeanSymbol(): Invalid XTS symbol {brokerageSymbol}");
@@ -78,12 +78,28 @@ namespace QuantConnect.Brokerages.XTS
             ContractInfo contract = XTSInstrumentList.GetContractInfoFromInstrumentID(instrumentID);
             if (contract != null)
             {
-                if(contract.Series == "FUTSTK") return SecurityType.Future;
-                if(contract.Series == "OPTSTK") return SecurityType.Option;
+                if (contract.Series == "FUTSTK") return SecurityType.Future;
+                if (contract.Series == "OPTSTK") return SecurityType.Option;
                 if (contract.Series == "EQ") return SecurityType.Equity;
-                if(contract.Series == "INDEX" || contract.Series == "FUTIDX" || contract.Series == "OPTIDX") return SecurityType.Index;
+                if (contract.Series == "INDEX" || contract.Series == "FUTIDX" || contract.Series == "OPTIDX") return SecurityType.Index;
             }
             return SecurityType.Base;
+        }
+
+
+        public List<ContractInfo> GetXTSInstrumentIdList(string symbol)
+        {
+            List<ContractInfo> list = new();
+            var contract = XTSInstrumentList.GetListofInstrumentIDfromList(symbol);
+            if(contract != null)
+            {
+                list.Add(contract);
+            }
+            if (list.IsNullOrEmpty())
+            {
+                throw new Exception($"SamcoSymbolMapper.GetSamcoTokenList(): symbol not found for given ticker {symbol.ID.Symbol}");
+            }
+            return list;
         }
     }
 }
