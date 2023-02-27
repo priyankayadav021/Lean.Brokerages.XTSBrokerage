@@ -19,6 +19,7 @@ using QuantConnect.Brokerages.XTS;
 using QuantConnect.XTSBrokerage;
 using RDotNet;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using XTSAPI.MarketData;
 
@@ -27,17 +28,35 @@ namespace QuantConnect.Tests.Brokerages.XTS
     [TestFixture]
     public class XTSSymbolMapperTests
     {
+        List<Symbol> _symbols = new List<Symbol>();  
 
         [Test]
-        public void createLeansymbol(/*string brokerage, SecurityType securitytype, DateTime date, decimal strike, OptionRight right*/)
+        [TestCase(57805)]
+        [TestCase(10576)]//NIFTYBEES, NSECM
+        [TestCase(57826)] //BANKNIFTY, NSEFO
+        [TestCase(129004)] //HDFC, NSEFO
+        public void createLeansymbol(/*string brokerage, SecurityType securitytype, DateTime date, decimal strike, OptionRight right*/long instrument)
         {
             var data = XTSInstrumentList.Instance();
-            var contract = XTSInstrumentList.GetContractInfoFromInstrumentID(57805);
+            var contract = XTSInstrumentList.GetContractInfoFromInstrumentID(instrument);
             var sym = XTSInstrumentList.CreateLeanSymbol(contract);
             var mapper = new XTSSymbolMapper();
             var BrokerageSymbol = mapper.GetBrokerageSymbol(sym);
             var info = JsonConvert.DeserializeObject<ContractInfo>(BrokerageSymbol);
-            mapper.GetLeanSymbol(BrokerageSymbol, SecurityType.Index, Market.India, info.ContractExpiration, info.StrikePrice.ToString().ToDecimal(),OptionRight.Call);
+            var security = mapper.GetBrokerageSecurityType(info.ExchangeInstrumentID);
+            var symbol = mapper.GetLeanSymbol(info.Name, security, Market.India, info.ContractExpiration, info.StrikePrice.ToString().ToDecimal(),OptionRight.Call);
+            _symbols.Add(symbol);
+            Subscribe();
+        }
+
+      
+        public void Subscribe()
+        {
+            if (_symbols.Count > 3)
+            {
+                var xts = new XtsBrokerage();
+                xts.Subscribe(_symbols);
+            }
 
         }
     }

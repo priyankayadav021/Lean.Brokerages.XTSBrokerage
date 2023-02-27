@@ -97,7 +97,7 @@ namespace QuantConnect.Brokerages.XTS
             }
             if (list.IsNullOrEmpty())
             {
-                throw new Exception($"SamcoSymbolMapper.GetSamcoTokenList(): symbol not found for given ticker {symbol.ID.Symbol}");
+                throw new Exception($"SamcoSymbolMapper.GetSamcoTokenList(): symbol not found for given ticker {symbol}");
             }
             return list;
         }

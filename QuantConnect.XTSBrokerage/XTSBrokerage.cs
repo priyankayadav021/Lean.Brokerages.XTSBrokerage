@@ -38,6 +38,8 @@ using QuantConnect.Util;
 using QuantConnect.Lean.Engine.DataFeeds;
 using QuantConnect.Packets;
 using XTSAPI;
+using Fasterflect;
+using System.Data;
 
 namespace QuantConnect.Brokerages.XTS
 {
@@ -68,6 +70,8 @@ namespace QuantConnect.Brokerages.XTS
         private string interactiveToken;
         private Task[] _checkConnectionTask = new Task[2];
         private readonly List<long> _subscribeInstrumentTokens = new List<long>();
+        private readonly List<long> _unSubscribeInstrumentTokens = new List<long>();
+
         private XTSSymbolMapper _XTSMapper;
         private string userID;
         // MIS/CNC/NRML
@@ -188,6 +192,7 @@ namespace QuantConnect.Brokerages.XTS
         public override List<Order> GetOpenOrders()
         {
             var allOrders = interactive.GetOrderAsync();
+            allOrders.Wait();
 
             List<Order> list = new List<Order>();
 
@@ -228,7 +233,7 @@ namespace QuantConnect.Brokerages.XTS
                         continue;
                     }
 
-                    order.BrokerId.Add(item.ExchangeOrderID);
+                    order.BrokerId.Add(item.AppOrderID.ToString());
                     order.Status = ConvertOrderStatus(item);
 
                     list.Add(order);
@@ -248,17 +253,21 @@ namespace QuantConnect.Brokerages.XTS
             return list;
         }
 
-
         private OrderStatus ConvertOrderStatus(OrderResult orderDetails)
         {
             var filledQty = Convert.ToInt32(orderDetails.OrderQuantity, CultureInfo.InvariantCulture);
             var pendingQty = Convert.ToInt32(orderDetails.LeavesQuantity, CultureInfo.InvariantCulture);
-            var orderDetail = interactive.GetOrderAsync(orderDetails.AppOrderID);
-            if (filledQty == 0)
+
+            if (orderDetails.OrderStatus.ToUpperInvariant() == "NEW" || orderDetails.OrderStatus.ToUpperInvariant() == "OPEN")
             {
                 return OrderStatus.Submitted;
             }
+
             else if (filledQty > 0 && pendingQty > 0 && orderDetails.OrderStatus.ToUpperInvariant() == "PARTIALLYFILLED")
+            {
+                return OrderStatus.PartiallyFilled;
+            }
+            else if (orderDetails.OrderStatus.ToUpperInvariant() == "PENDINGNEW")
             {
                 return OrderStatus.PartiallyFilled;
             }
@@ -288,8 +297,9 @@ namespace QuantConnect.Brokerages.XTS
             // get MIS and NRML Positions
             if (string.IsNullOrEmpty(xtsProductTypeUpper) || xtsProductTypeUpper == productTypeMIS)
             {
-                var positions = interactive.GetDayPositionAsync();  //position include child positions...
-                if (positions.Result.positionList.Length > 0)
+                var positions = interactive.GetDayPositionAsync();
+                positions.Wait();
+                if (positions.Result.positionList.Length > 0 && positions.IsCompleted)
                 {
                     foreach (var position in positions.Result.positionList)
                     {
@@ -315,6 +325,7 @@ namespace QuantConnect.Brokerages.XTS
             if (string.IsNullOrEmpty(xtsProductTypeUpper) || xtsProductTypeUpper == productTypeCNC)
             {
                 var holdingResponse = interactive.GetHoldingsAsync(userID);
+                holdingResponse.Wait();
                 if (holdingResponse.IsCompleted && holdingResponse.Result.RMSHoldingList != null)
                 {
                     //var symbol = marketdata.SearchByIdAsync();
@@ -338,7 +349,8 @@ namespace QuantConnect.Brokerages.XTS
             if (string.IsNullOrEmpty(xtsProductTypeUpper) || xtsProductTypeUpper == productTypeNRML)
             {
                 var positions = interactive.GetNetPositionAsync();
-                if (positions.IsCompleted)
+                positions.Wait();
+                if (positions.IsCompleted && positions.Result.positionList.Length > 0)
                 {
                     foreach (var position in positions.Result.positionList)
                     {
@@ -585,6 +597,11 @@ namespace QuantConnect.Brokerages.XTS
         /// <param name="symbols">The list of symbols to subscribe</param>
         public void Subscribe(IEnumerable<Symbol> symbols)
         {
+            _XTSMapper = new XTSSymbolMapper();
+            marketdata = new XTSMarketData(Config.Get("xts-url") + "/marketdata");
+            MarketDataLoginResult mlogin;
+            Task<MarketDataLoginResult> mlogin1 = marketdata.LoginAsync<MarketDataLoginResult>(Config.Get("xts-marketdata-appkey"), Config.Get("xts-marketdata-secretkey"), "WebAPI");
+            mlogin1.Wait();
             if (symbols.Count() <= 0)
             {
                 return;
@@ -602,7 +619,6 @@ namespace QuantConnect.Brokerages.XTS
                     data.Wait();
                     if(data.Result != null)
                     {
-
                         Log.Trace($"InstrumentID: {instrumentID} subscribed");
                     }
                 }
@@ -617,24 +633,19 @@ namespace QuantConnect.Brokerages.XTS
                 {
                     var contractString = _XTSMapper.GetBrokerageSymbol(symbol);
                     contract = JsonConvert.DeserializeObject<ContractInfo>(contractString);
-                    var contractList = _XTSMapper.GetXTSInstrumentIdList(contract.Name);
-                    foreach (var data in contractList)
+                    var instrumentID = contract.ExchangeInstrumentID;
+                    if (!_subscribeInstrumentTokens.Contains(instrumentID))
                     {
-                        var instrumentID = data.ExchangeInstrumentID;
-                        if (!_subscribeInstrumentTokens.Contains(instrumentID))
+                        List<Instruments> instruments = new List<Instruments> { new Instruments { exchangeSegment = contract.ExchangeSegment, exchangeInstrumentID = contract.ExchangeInstrumentID } };
+                        Task<QuoteResult<ListQuotesBase>> info = marketdata.SubscribeAsync<ListQuotesBase>(1502, instruments);
+                        info.Wait();
+                        if (info.Result != null)
                         {
-                            contract = XTSInstrumentList.GetContractInfoFromInstrumentID(instrumentID);
-                            List<Instruments> instruments = new List<Instruments> { new Instruments { exchangeSegment = data.ExchangeSegment, exchangeInstrumentID = data.ExchangeInstrumentID } };
-                            Task<QuoteResult<ListQuotesBase>> info = marketdata.SubscribeAsync<ListQuotesBase>(1502, instruments);
-                            info.Wait();
-                            if (info.Result != null)
-                            {
-
-                                Log.Trace($"InstrumentID: {instrumentID} subscribed");
-                            }
+                            Log.Trace($"InstrumentID: {instrumentID} subscribed");
                             _subscribeInstrumentTokens.Add(instrumentID);
                             _subscriptionsById[instrumentID] = symbol;
                         }
+                       
                     }
                 }
                 catch (Exception exception)
@@ -651,10 +662,87 @@ namespace QuantConnect.Brokerages.XTS
         /// <param name="symbols">The symbols to be removed keyed by SecurityType</param>
         private bool Unsubscribe(IEnumerable<Symbol> symbols)
         {
-            throw new NotImplementedException();
+            if (IsConnected)
+            {
+                if (symbols.Count() > 0)
+                {
+                    return false;
+                }
+                foreach (var symbol in symbols)
+                {
+                    try
+                    {
+                        var contract = _XTSMapper.GetBrokerageSymbol(symbol);
+                        var data = JsonConvert.DeserializeObject<ContractInfo>(contract);
+                        if (!_unSubscribeInstrumentTokens.Contains(data.ExchangeInstrumentID))
+                        {
+                            List<Instruments> instruments = new List<Instruments> { new Instruments { exchangeSegment = data.ExchangeSegment, exchangeInstrumentID = data.ExchangeInstrumentID } };
+                            Task<UnsubscriptionResult> info = marketdata.UnsubscribeAsync(1502, instruments);
+                            info.Wait();
+                            if (info.Result != null)
+                            {
+                                _unSubscribeInstrumentTokens.Add(data.ExchangeInstrumentID);
+                                _subscribeInstrumentTokens.Remove(data.ExchangeInstrumentID);
+                                Symbol unSubscribeSymbol;
+                                _subscriptionsById.TryRemove(data.ExchangeInstrumentID, out unSubscribeSymbol);
+                            }
+                            else
+                            {
+                                throw new Exception($"XTSBrokerage Unsubscribe error: {info.Exception}");
+                            }
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        throw new Exception($"XTSBrokerage.Unsubscribe(): Message: {exception.Message} Exception: {exception.InnerException}");
+                    }
+                }
+                return true;
+            }
+            return false;
+
+
         }
 
+        private void onConnectionStateEvent(object obj,ConnectionEventArgs args)
+        {
+            if(args.ConnectionState == ConnectionEvents.connect)
+            {
+                Log.Trace($"Connecting to {args.ConnectionState}");
+            }
+            if(args.ConnectionState == ConnectionEvents.disconnect)
+            {
+                socketConnected= false;
+                Log.Trace($"Disconnected {args.ConnectionState}");
+            }
+            if(args.ConnectionState == ConnectionEvents.joined) {
+                socketConnected= true;
+                Log.Trace($"Joined {args.Data}.... Subscribing");
+                Subscribe(GetSubscribed());
+            }
+            if(args.ConnectionState == ConnectionEvents.success)
+            {
+                Log.Trace($"success {args.Data}");
+            }
+            if (args.ConnectionState == ConnectionEvents.warning)
+            {
+                Log.Trace($"warning {args.Data}");
+            }
+            if (args.ConnectionState == ConnectionEvents.error)
+            {
+                Log.Trace($"error: {args.Data}");
+            }
+            if (args.ConnectionState == ConnectionEvents.logout)
+            {
+                Log.Error($"XTSBrokerage.OnError(): Message: {args.Data}");
+                if (!IsExchangeOpen(extendedMarketHours: true))
+                {
+                    socketConnected= false;
+                }
+            }
 
+
+        }
 
         private void Initialize(string tradingSegment, string productType, string interactiveSecretKey,
             string interactiveapiKey, string marketSecretKey, string marketeapiKey, IAlgorithm algorithm, IDataAggregator aggregator)
@@ -676,27 +764,15 @@ namespace QuantConnect.Brokerages.XTS
             //_messageHandler = new BrokerageConcurrentMessageHandler<Socket>(OnMessageImpl);
             _marketApiSecret= marketSecretKey;
             _marketApiKey = marketeapiKey;
+            _XTSMapper = new XTSSymbolMapper();
             _checkConnectionTask[0] = null;
             _checkConnectionTask[1] = null;
             var subscriptionManager = new EventBasedDataQueueHandlerSubscriptionManager();
-            //TODO:IMPLEMENT For Marketdata Socket
+            
 
-            interactiveSocket = IO.Socket(Config.Get("xts-url").ToString(), new IO.Options { ForceNew = true });
-            //SubscribeToConnectionEvent("interactive");
-            interactiveSocket.On(Socket.EVENT_MESSAGE, (data) =>
-            {
-
-            });
-            interactiveSocket.On(Socket.EVENT_DISCONNECT, (data) => {
-                Log.Trace($"XTSBrokerage(): Socket Diconnected.");
-                interactiveSocketConnected = false;
-                socketConnected= false;
-            });
-            interactiveSocket.On(Socket.EVENT_CONNECT, (data) => {
-                Log.Trace($"XTSBrokerage(): Socket.Open. Subscribing");
-                Subscribe((IEnumerable<Symbol>)GetSubscribed());
-            });
-
+            interactive.ConnectionState += onConnectionStateEvent;
+            interactive.Interactive += onInteractiveEvent;
+            marketdata.MarketData += onMarketDataEvent;
             subscriptionManager.SubscribeImpl += (s, t) =>
             {
                 Subscribe(s);
@@ -711,55 +787,37 @@ namespace QuantConnect.Brokerages.XTS
             Log.Trace("XTSBrokerage(): Start XTS Brokerage");
         }
 
-        private void SubscribeToConnectionEvent(string type)
+        private void onInteractiveEvent(object sender, InteractiveEventArgs args)
         {
-            Socket socket = null;
-
-            if (type == "interactive")
-                socket = interactiveSocket;
-            else
-                socket = marketDataSocket;
-
-            if (socket == null)
-                return;
-
-
-            socket.On(Socket.EVENT_CONNECT, (data) =>
+            if(args.InteractiveMessageType == InteractiveMessageType.Order)
             {
-                
-            });
-
-            socket.On("joined", (data) =>
+                OrderResult order = JsonConvert.DeserializeObject<OrderResult>(args.Data.ToString());
+            }
+            if(args.InteractiveMessageType == InteractiveMessageType.Trade)
             {
-                
-            });
 
-            socket.On("success", (data) =>
+            }
+            if(args.InteractiveMessageType == InteractiveMessageType.Position)
             {
-                
-            });
 
-            socket.On("warning", (data) =>
-            {
-                
-            });
+            }
+            
+        }
 
-            socket.On("error", (data) =>
+        private void onMarketDataEvent(object sender, MarketDataEventArgs args)
+        {
+            if(args.MarketDataPorts == MarketDataPorts.marketDepthEvent)
             {
-                
-            });
-
-            socket.On("logout", (data) =>
+                var data = args.Value;
+            }
+            if (args.MarketDataPorts == MarketDataPorts.touchlineEvent)
             {
-               
-            });
-
-            socket.On("disconnect", (data) =>
+                var data = args.Value;
+            }
+            if (args.MarketDataPorts == MarketDataPorts.candleDataEvent)
             {
-                Log.Trace($"XTSBrokerage(): Socket Diconnected.");
-                interactiveSocketConnected = false;
-                socketConnected = false;
-            });
+                var data = args.Value;
+            }
         }
 
         private IEnumerable<Symbol> GetSubscribed()
@@ -768,10 +826,7 @@ namespace QuantConnect.Brokerages.XTS
             return _subscriptionManager.GetSubscribedSymbols() ?? Enumerable.Empty<Symbol>();
         }
 
-        private void OnMessageImpl(WebSocketMessage webSocketMessage)
-        {
-           
-        }
+     
 
         private void WaitTillConnected()
         {
@@ -848,13 +903,13 @@ namespace QuantConnect.Brokerages.XTS
         }
 
 
-        private class ModulesReadLicenseRead : Api.RestResponse
-        {
-            [JsonProperty(PropertyName = "license")]
-            public string License;
-            [JsonProperty(PropertyName = "organizationId")]
-            public string OrganizationId;
-        }
+        //private class ModulesReadLicenseRead : Api.RestResponse
+        //{
+        //    [JsonProperty(PropertyName = "license")]
+        //    public string License;
+        //    [JsonProperty(PropertyName = "organizationId")]
+        //    public string OrganizationId;
+        //}
 
 
 
