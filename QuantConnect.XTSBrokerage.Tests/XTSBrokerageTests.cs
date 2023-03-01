@@ -27,6 +27,10 @@ using System;
 using Deedle;
 using QuantConnect.Data;
 using QuantConnect.Brokerages.XTS;
+using Newtonsoft.Json;
+using QuantConnect.XTSBrokerage;
+using XTSAPI.MarketData;
+using System.Collections.Generic;
 
 namespace QuantConnect.XTSBrokerages.Tests
 {
@@ -38,7 +42,8 @@ namespace QuantConnect.XTSBrokerages.Tests
         /// Gets the security type associated with the <see cref="BrokerageTests.Symbol"/>
         /// </summary>
         protected override SecurityType SecurityType => SecurityType.Equity;
-
+        List<Symbol> _symbols = new List<Symbol>();
+        long[] instrumnts = { 26000, 26001, 26002, 26003 } ;
         protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
         {
             var securities = new SecurityManager(new TimeKeeper(DateTime.UtcNow, TimeZones.Kolkata))
@@ -62,8 +67,24 @@ namespace QuantConnect.XTSBrokerages.Tests
             var productType = Config.Get("xts-product-type");
             var xts = new XtsBrokerage(tradingSegment, productType, interactiveSecretKey,
             interactiveapiKey, marketSecretKey, marketApiKey, algorithm.Object, new AggregationManager());
+            var data = XTSInstrumentList.Instance();
+            foreach (var instrument in instrumnts)
+            {
+                var contract = XTSInstrumentList.GetContractInfoFromInstrumentID(instrument);
+                var sym = XTSInstrumentList.CreateLeanSymbol(contract);
+                var mapper = new XTSSymbolMapper();
+                var BrokerageSymbol = mapper.GetBrokerageSymbol(sym);
+                var info = JsonConvert.DeserializeObject<ContractInfo>(BrokerageSymbol);
+                var security = mapper.GetBrokerageSecurityType(info.ExchangeInstrumentID);
+                var symbol = mapper.GetLeanSymbol(info.Name, security, Market.India, info.ContractExpiration, info.StrikePrice.ToString().ToDecimal(), OptionRight.Call);
+                _symbols.Add(symbol);
+            }
+            xts.Subscribe(_symbols);
+            Console.WriteLine(_symbols.Count);
             return xts;
         }
+
+
         protected override bool IsAsync()
         {
             throw new System.NotImplementedException();

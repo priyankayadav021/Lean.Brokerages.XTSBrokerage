@@ -31,10 +31,10 @@ namespace QuantConnect.Tests.Brokerages.XTS
         List<Symbol> _symbols = new List<Symbol>();  
 
         [Test]
-        [TestCase(57805)]
-        [TestCase(10576)]//NIFTYBEES, NSECM
-        [TestCase(57826)] //BANKNIFTY, NSEFO
-        [TestCase(129004)] //HDFC, NSEFO
+        [TestCase(26000)]
+        [TestCase(26001)]//NIFTYBEES, NSECM
+        [TestCase(26002)] //BANKNIFTY, NSEFO
+        [TestCase(26003)] //HDFC, NSEFO
         public void createLeansymbol(/*string brokerage, SecurityType securitytype, DateTime date, decimal strike, OptionRight right*/long instrument)
         {
             var data = XTSInstrumentList.Instance();
@@ -56,6 +56,7 @@ namespace QuantConnect.Tests.Brokerages.XTS
             {
                 var xts = new XtsBrokerage();
                 xts.Subscribe(_symbols);
+                Console.WriteLine(_symbols.Count);
             }
 
         }

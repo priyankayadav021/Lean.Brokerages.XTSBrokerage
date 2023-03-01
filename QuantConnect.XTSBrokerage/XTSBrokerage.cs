@@ -255,6 +255,7 @@ namespace QuantConnect.Brokerages.XTS
 
         private OrderStatus ConvertOrderStatus(OrderResult orderDetails)
         {
+            //TODO: order state diagram
             var filledQty = Convert.ToInt32(orderDetails.OrderQuantity, CultureInfo.InvariantCulture);
             var pendingQty = Convert.ToInt32(orderDetails.LeavesQuantity, CultureInfo.InvariantCulture);
 
@@ -291,44 +292,33 @@ namespace QuantConnect.Brokerages.XTS
         {
             var holdingsList = new List<Holding>();
             var xtsProductTypeUpper = _XTSProductType.ToUpperInvariant();
-            var productTypeMIS = "MIS";
-            var productTypeCNC = "CNC";
-            var productTypeNRML = "NRML";
-            // get MIS and NRML Positions
-            if (string.IsNullOrEmpty(xtsProductTypeUpper) || xtsProductTypeUpper == productTypeMIS)
+            
+            if (string.IsNullOrEmpty(xtsProductTypeUpper))
             {
-                var positions = interactive.GetDayPositionAsync();
-                positions.Wait();
-                if (positions.Result.positionList.Length > 0 && positions.IsCompleted)
+                var daypositions = interactive.GetDayPositionAsync();
+                daypositions.Wait();
+                if (daypositions.Result.positionList.Length > 0 && daypositions.IsCompleted)
                 {
-                    foreach (var position in positions.Result.positionList)
+                    foreach (var position in daypositions.Result.positionList)
                     {
-                        //We only need Intraday positions here, Not carryforward postions
-                        if (position.ProductType.ToUpperInvariant() == productTypeMIS)
+                        Holding holding = new Holding
                         {
-                            Holding holding = new Holding
-                            {
-                                AveragePrice = Convert.ToDecimal((position.NetAmount.ToDecimal() / position.Quantity.ToDecimal()), CultureInfo.InvariantCulture),
-                                Symbol = _XTSMapper.GetLeanSymbol(position.TradingSymbol, _XTSMapper.GetBrokerageSecurityType(position.ExchangeInstrumentID.ToInt64()), Market.India),
-                                MarketPrice = Convert.ToDecimal(position.BuyAveragePrice, CultureInfo.InvariantCulture),
-                                Quantity = position.Quantity.ToDecimal(),
-                                UnrealizedPnL = Convert.ToDecimal(position.UnrealizedMTM, CultureInfo.InvariantCulture),
-                                CurrencySymbol = Currencies.GetCurrencySymbol("INR"),
-                                MarketValue = Convert.ToDecimal(position.BuyAmount)
-                            };
-                            holdingsList.Add(holding);
-                        }
+                            AveragePrice = Convert.ToDecimal((position.NetAmount.ToDecimal() / position.Quantity.ToDecimal()), CultureInfo.InvariantCulture),
+                            Symbol = _XTSMapper.GetLeanSymbol(position.TradingSymbol, _XTSMapper.GetBrokerageSecurityType(position.ExchangeInstrumentID.ToInt64()), Market.India),
+                            MarketPrice = Convert.ToDecimal(position.BuyAveragePrice, CultureInfo.InvariantCulture),
+                            Quantity = position.Quantity.ToDecimal(),
+                            UnrealizedPnL = Convert.ToDecimal(position.UnrealizedMTM, CultureInfo.InvariantCulture),
+                            CurrencySymbol = Currencies.GetCurrencySymbol("INR"),
+                            MarketValue = Convert.ToDecimal(position.BuyAmount)
+                        };
+                        holdingsList.Add(holding);
                     }
                 }
-            }
-            // get CNC Positions
-            if (string.IsNullOrEmpty(xtsProductTypeUpper) || xtsProductTypeUpper == productTypeCNC)
-            {
+            
                 var holdingResponse = interactive.GetHoldingsAsync(userID);
                 holdingResponse.Wait();
                 if (holdingResponse.IsCompleted && holdingResponse.Result.RMSHoldingList != null)
                 {
-                    //var symbol = marketdata.SearchByIdAsync();
                     foreach (var item in holdingResponse.Result.RMSHoldingList)
                     {
                         Holding holding = new Holding
@@ -344,31 +334,24 @@ namespace QuantConnect.Brokerages.XTS
                         holdingsList.Add(holding);
                     }
                 }
-            }
-            // get NRML Positions
-            if (string.IsNullOrEmpty(xtsProductTypeUpper) || xtsProductTypeUpper == productTypeNRML)
-            {
-                var positions = interactive.GetNetPositionAsync();
-                positions.Wait();
-                if (positions.IsCompleted && positions.Result.positionList.Length > 0)
+            
+                var netpositions = interactive.GetNetPositionAsync();
+                netpositions.Wait();
+                if (netpositions.IsCompleted && netpositions.Result.positionList.Length > 0)
                 {
-                    foreach (var position in positions.Result.positionList)
+                    foreach (var position in netpositions.Result.positionList)
                     {
-                        //We only need carry forward NRML positions here, Not intraday postions.
-                        if (position.ProductType.ToUpperInvariant() == productTypeNRML)
+                        Holding holding = new Holding
                         {
-                            Holding holding = new Holding
-                            {
-                                AveragePrice = Convert.ToDecimal((position.NetAmount.ToDecimal() / position.Quantity.ToDecimal()), CultureInfo.InvariantCulture),
-                                Symbol = _XTSMapper.GetLeanSymbol(position.TradingSymbol, _XTSMapper.GetBrokerageSecurityType(position.ExchangeInstrumentID.ToInt64()), Market.India),
-                                MarketPrice = Convert.ToDecimal(position.BuyAveragePrice, CultureInfo.InvariantCulture),
-                                Quantity = position.Quantity.ToDecimal(),
-                                UnrealizedPnL = Convert.ToDecimal(position.UnrealizedMTM, CultureInfo.InvariantCulture),
-                                CurrencySymbol = Currencies.GetCurrencySymbol("INR"),
-                                MarketValue = Convert.ToDecimal(position.BuyAmount)
-                            };
+                            AveragePrice = Convert.ToDecimal((position.NetAmount.ToDecimal() / position.Quantity.ToDecimal()), CultureInfo.InvariantCulture),
+                            Symbol = _XTSMapper.GetLeanSymbol(position.TradingSymbol, _XTSMapper.GetBrokerageSecurityType(position.ExchangeInstrumentID.ToInt64()), Market.India),
+                            MarketPrice = Convert.ToDecimal(position.BuyAveragePrice, CultureInfo.InvariantCulture),
+                            Quantity = position.Quantity.ToDecimal(),
+                            UnrealizedPnL = Convert.ToDecimal(position.UnrealizedMTM, CultureInfo.InvariantCulture),
+                            CurrencySymbol = Currencies.GetCurrencySymbol("INR"),
+                            MarketValue = Convert.ToDecimal(position.BuyAmount)
+                        };
                             holdingsList.Add(holding);
-                        }
                     }
                 }
             }
@@ -393,7 +376,86 @@ namespace QuantConnect.Brokerages.XTS
         public override bool PlaceOrder(Order order)
         {
             throw new NotImplementedException();
-        }
+            //var submitted = false;
+
+            //_messageHandler.WithLockedStream(() =>
+            //{
+            //var orderFee = OrderFee.Zero;
+            //var orderProperties = order.Properties as IndiaOrderProperties;
+            //var XTSProductType = _XTSProductType;
+            //if (orderProperties == null || orderProperties.Exchange == null)
+            //{
+            //    var errorMessage = $"Order failed, Order Id: {order.Id} timestamp: {order.Time} quantity: {order.Quantity} content: Please specify a valid order properties with an exchange value";
+            //    OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, orderFee, "Samco Order Event") { Status = OrderStatus.Invalid });
+            //    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, errorMessage));
+            //    return;
+            //}
+            //if (orderProperties.ProductType != null)
+            //{
+            //    XTSProductType = orderProperties.ProductType;
+            //}
+            //else if (string.IsNullOrEmpty(XTSProductType))
+            //{
+            //    throw new ArgumentException("Please set ProductType in config or provide a value in DefaultOrderProperties");
+            //}
+            //var contract = _XTSMapper.GetBrokerageSymbol(order.Symbol);
+            //ContractInfo data = null;
+            //if (contract == null)
+            //{
+            //    data = JsonConvert.DeserializeObject<ContractInfo>(contract.ToString());
+            //}
+            
+            //if(order.Type == Orders.OrderType.Market)
+            //    {
+
+            //    }
+            //var orderResponse = interactive.PlaceOrderAsync(orderProperties.Exchange.ToString().ToUpperInvariant(),data.ExchangeInstrumentID, order.Type, order.Quantity,order.Price,0,XTSProductType
+            //    , order.TimeInForce, 0, order.ContingentId);
+
+            //if (orderResponse.validationErrors != null)
+            //{
+            //    var errorMessage = $"Order failed, Order Id: {order.Id} timestamp: {order.Time} quantity: {order.Quantity} content: {orderResponse.validationErrors.ToString()}";
+            //    OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, orderFee, "Samco Order Event") { Status = OrderStatus.Invalid });
+            //    OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, -1, errorMessage));
+
+            //    submitted = true;
+            //    return;
+            //}
+
+            //if (orderResponse.status == "Success")
+            //{
+            //    if (string.IsNullOrEmpty(orderResponse.orderNumber))
+            //    {
+            //        var errorMessage = $"Error parsing response from place order: {orderResponse.statusMessage}";
+            //        OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, orderFee, "Samco Order Event") { Status = OrderStatus.Invalid, Message = errorMessage });
+            //        OnMessage(new BrokerageMessageEvent(BrokerageMessageType.Warning, orderResponse.statusMessage, errorMessage));
+
+            //        submitted = true;
+            //        return;
+            //    }
+
+            //    var brokerId = orderResponse.orderNumber;
+            //    if (CachedOrderIDs.ContainsKey(order.Id))
+            //    {
+            //        CachedOrderIDs[order.Id].BrokerId.Clear();
+            //        CachedOrderIDs[order.Id].BrokerId.Add(brokerId);
+            //    }
+            //    else
+            //    {
+            //        order.BrokerId.Add(brokerId);
+            //        CachedOrderIDs.TryAdd(order.Id, order);
+            //    }
+
+            //    // Generate submitted event
+            //    OnOrderEvent(new OrderEvent(order, DateTime.UtcNow, orderFee, "Samco Order Event") { Status = OrderStatus.Submitted });
+            //    Log.Trace($"SamcoBrokerage.PlaceOrder(): Order submitted successfully - OrderId: {order.Id}");
+
+            //    _pendingOrders.TryAdd(brokerId, order);
+            //    _fillMonitorResetEvent.Set();
+
+            //    submitted = true;
+            //    return;
+            }
 
         /// <summary>
         /// Updates the order with the same id
@@ -597,11 +659,11 @@ namespace QuantConnect.Brokerages.XTS
         /// <param name="symbols">The list of symbols to subscribe</param>
         public void Subscribe(IEnumerable<Symbol> symbols)
         {
-            _XTSMapper = new XTSSymbolMapper();
-            marketdata = new XTSMarketData(Config.Get("xts-url") + "/marketdata");
-            MarketDataLoginResult mlogin;
-            Task<MarketDataLoginResult> mlogin1 = marketdata.LoginAsync<MarketDataLoginResult>(Config.Get("xts-marketdata-appkey"), Config.Get("xts-marketdata-secretkey"), "WebAPI");
-            mlogin1.Wait();
+            //_XTSMapper = new XTSSymbolMapper();
+            //marketdata = new XTSMarketData(Config.Get("xts-url") + "/marketdata");
+            //MarketDataLoginResult mlogin;
+            //Task<MarketDataLoginResult> mlogin1 = marketdata.LoginAsync<MarketDataLoginResult>(Config.Get("xts-marketdata-appkey"), Config.Get("xts-marketdata-secretkey"), "WebAPI");
+            //mlogin1.Wait();
             if (symbols.Count() <= 0)
             {
                 return;
@@ -637,7 +699,7 @@ namespace QuantConnect.Brokerages.XTS
                     if (!_subscribeInstrumentTokens.Contains(instrumentID))
                     {
                         List<Instruments> instruments = new List<Instruments> { new Instruments { exchangeSegment = contract.ExchangeSegment, exchangeInstrumentID = contract.ExchangeInstrumentID } };
-                        Task<QuoteResult<ListQuotesBase>> info = marketdata.SubscribeAsync<ListQuotesBase>(1502, instruments);
+                        var info = marketdata.SubscribeAsync<Touchline>(1501, instruments);
                         info.Wait();
                         if (info.Result != null)
                         {
@@ -782,22 +844,46 @@ namespace QuantConnect.Brokerages.XTS
 
             _subscriptionManager = subscriptionManager;
             _fillMonitorTask = Task.Factory.StartNew(FillMonitorAction, _ctsFillMonitor.Token);
-
+            Connect();
             //ValidateSubscription();
             Log.Trace("XTSBrokerage(): Start XTS Brokerage");
         }
 
         private void onInteractiveEvent(object sender, InteractiveEventArgs args)
         {
+            //Whenever there is change in order status this event will be generated
             if(args.InteractiveMessageType == InteractiveMessageType.Order)
             {
                 OrderResult order = JsonConvert.DeserializeObject<OrderResult>(args.Data.ToString());
+                if(order.OrderStatus.ToUpperInvariant() == "REJECTED")
+                {
+                    
+                }
+                if(order.OrderStatus.ToUpperInvariant() == "CANCELLEd")
+                {
+
+                }
+                if(order.OrderStatus.ToUpperInvariant() == "NEW" || order.OrderStatus.ToUpperInvariant() == "OPEN")
+                {
+
+                }
+                if(order.OrderStatus.ToUpperInvariant() == "PARTIALLYFILLED")
+                {
+
+                }
+                if(order.OrderStatus.ToUpperInvariant() == "FILLED")
+                {
+
+                }
+                
             }
-            if(args.InteractiveMessageType == InteractiveMessageType.Trade)
+            //When any order gets executed (filled, partially filled), a new trade event will be generated. 
+            if (args.InteractiveMessageType == InteractiveMessageType.Trade)
             {
 
             }
-            if(args.InteractiveMessageType == InteractiveMessageType.Position)
+            //If any position change happens then this will be generated
+            if (args.InteractiveMessageType == InteractiveMessageType.Position)
             {
 
             }
@@ -806,17 +892,67 @@ namespace QuantConnect.Brokerages.XTS
 
         private void onMarketDataEvent(object sender, MarketDataEventArgs args)
         {
+            //TODO: whenever change in ltp emit tradeQuoteEvent and touchline event emit Emitquote Event(not confirmed)
             if(args.MarketDataPorts == MarketDataPorts.marketDepthEvent)
             {
                 var data = args.Value;
             }
             if (args.MarketDataPorts == MarketDataPorts.touchlineEvent)
             {
-                var data = args.Value;
+                Touchline data = JsonConvert.DeserializeObject<Touchline>(args.SourceData.ToString());
+                try
+                {
+                    var tick = new Tick
+                    {
+                        AskPrice = data.AskInfo.Price.ToString().ToDecimal(),
+                        BidPrice = data.BidInfo.Price.ToString().ToDecimal(),
+                        Value = data.AverageTradedPrice.ToString().ToDecimal(),
+                        Symbol = XTSInstrumentList.GetLeanSymbolFromInstrumentID(data.ExchangeInstrumentID),
+                        Time = DateTime.Parse(data.ExchangeTimeStamp.ToString()),
+                        Exchange = XTSAPI.Globals.GetExchangefromInt(data.ExchangeSegment),
+                        TickType = TickType.Quote,
+                        AskSize = data.AskInfo.Size,
+                        BidSize = data.BidInfo.Size,
+                    };
+
+                    //lock (TickLocker)
+                    //{
+                        _aggregator.Update(tick);
+                    //}
+                }
+                catch (Exception exception)
+                {
+                    throw new Exception($"XTSBrokerage.EmitQuoteTick(): Message: {exception.Message} Exception: {exception.InnerException}");
+                }
+
             }
             if (args.MarketDataPorts == MarketDataPorts.candleDataEvent)
             {
                 var data = args.Value;
+            }
+
+            if(args.MarketDataPorts == MarketDataPorts.openInterestEvent)
+            {
+                OI data = JsonConvert.DeserializeObject<OI>(args.SourceData.ToString());
+                try
+                {
+                    var tick = new Tick
+                    {
+                        TickType = TickType.OpenInterest,
+                        Value = data.OpenInterest,
+                        Exchange = XTSAPI.Globals.GetExchangefromInt(data.ExchangeSegment),
+                        Symbol = XTSInstrumentList.GetLeanSymbolFromInstrumentID(data.ExchangeInstrumentID),
+                    };
+
+                    //lock (TickLocker)
+                    //{
+                        _aggregator.Update(tick);
+                    //}
+                }
+                catch (Exception exception)
+                {
+                    throw new Exception($"SamcoBrokerage.EmitOpenInterestTick(): Message: {exception.Message} Exception: {exception.InnerException}");
+                }
             }
         }
 

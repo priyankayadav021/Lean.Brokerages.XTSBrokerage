@@ -25,7 +25,7 @@ namespace QuantConnect.XTSBrokerage
         private static Dictionary<ContractInfo, Symbol> _contractMapToLeanSymbol;
         private static Dictionary<long, ContractInfo> _instrumentIDToContractInfo;
         private static Dictionary<Symbol, ContractInfo> _leanSymbolToContractMap;
-        protected string _getEndPoint = Config.Get("xts-url") + "/marketdata/instruments/master/";
+        private static Dictionary<long,Symbol> _XTSInstrumentIDToLeanSymbol;
 
 
         protected XTSInstrumentList()
@@ -64,8 +64,10 @@ namespace QuantConnect.XTSBrokerage
             lock (objectToLock)
             {
                 _XTSTradableContractList?.Clear();
-                //_leanSymbolList?.Clear();
+                _leanSymbolToContractMap?.Clear();
                 _instrumentIDToContractInfo?.Clear();
+                _contractMapToLeanSymbol?.Clear();
+                _XTSInstrumentIDToLeanSymbol?.Clear();
 
                 var csvString = @"D:/Contract.csv";
                 var streamReader = new StreamReader(csvString);
@@ -107,6 +109,7 @@ namespace QuantConnect.XTSBrokerage
                         _leanSymbolToContractMap[_sym] = contract;
                         _contractMapToLeanSymbol[contract] = _sym;
                         _instrumentIDToContractInfo[contract.ExchangeInstrumentID] = contract;
+                        _XTSInstrumentIDToLeanSymbol[contract.ExchangeInstrumentID] = _sym;
 
                     }
                 }
@@ -134,7 +137,7 @@ namespace QuantConnect.XTSBrokerage
                 // index
                 case "INDEX":
                     {
-                        throw new ArgumentException($"{WhoCalledMe.GetMethodName(1)} instrument type {contract.Series} is not supported");
+                        return createIndexSymbol(contract);
                         break;
                     }
 
@@ -195,7 +198,7 @@ namespace QuantConnect.XTSBrokerage
                 //Currenty Options
                 case "OPTCUR":
                     {
-                        //TODO: IMPLEMENT
+                        //TODO: IMPLEMENT(not needed now)
                         throw new ArgumentException($"{WhoCalledMe.GetMethodName(1)} instrument type {contract.Series} is not supported");
                         break;
                     }
@@ -238,6 +241,15 @@ namespace QuantConnect.XTSBrokerage
            //return symbol;
         }
 
+
+        public static Symbol createIndexSymbol(ContractInfo contract)
+        {
+            if (contract.Series != "INDEX")
+            {
+                throw new ArgumentException($"{WhoCalledMe.GetMethodName(1)} instrument type {contract.Series} is not supported. This function is for INDEX");
+            }
+            return Symbol.Create(contract.Name, SecurityType.Index, Market.India);
+        }
         public static Symbol createIndexFuture(ContractInfo contract)
         {
             DateTime _expiry;
@@ -359,7 +371,20 @@ namespace QuantConnect.XTSBrokerage
                     if (contract.Name == brokerageSymbol && contract.ContractExpiration == expirationDate
                         && contract.OptionType == (int)optionRight + 3) return contract;
                 }
-                else if (securityType == SecurityType.Index && (contract.Series == "FUTIDX" || contract.Series == "OPTIDX" || contract.Series == "INDEX")) return contract;
+                else if (securityType == SecurityType.Index && contract.Series == "INDEX" && contract.Name == brokerageSymbol)
+                {
+                    return contract;
+                }
+                else if (securityType == SecurityType.Index && (contract.Series == "FUTIDX"))
+                {
+                    if (contract.Name == brokerageSymbol && contract.ContractExpiration == expirationDate) return contract;
+                }
+                else if (securityType == SecurityType.Index && contract.Series == "OPTIDX")
+                {
+                    if (contract.Name == brokerageSymbol && contract.ContractExpiration == expirationDate
+                        && contract.OptionType == (int)optionRight + 3) return contract;
+                }
+                    
             }
             return null;
         }
@@ -373,14 +398,21 @@ namespace QuantConnect.XTSBrokerage
             }
             else
             {
-                throw new ArgumentException($"{WhoCalledMe.GetMethodName(1)} Invalid Symbol. failed to find the instrument {instrumentID}");
+                throw new ArgumentException($"{WhoCalledMe.GetMethodName(1)} Invalid instrumentID. failed to find the instrument {instrumentID}");
             }
         }
 
 
-        public static ContractInfo GetListofInstrumentIDfromList(string name)
+        public static Symbol GetLeanSymbolFromInstrumentID(long instrumentID)
         {
-            return _XTSTradableContractList.Where(s => s.Name == name.ToUpperInvariant()).SingleOrDefault();
+            if(_XTSInstrumentIDToLeanSymbol.TryGetValue(instrumentID, out var symbol))
+            {
+                return symbol;
+            }
+            else
+            {
+                throw new ArgumentException($"{WhoCalledMe.GetMethodName(1)} Invalid instrumentID. failed to find the instrument {instrumentID}");
+            }
         }
 
     }

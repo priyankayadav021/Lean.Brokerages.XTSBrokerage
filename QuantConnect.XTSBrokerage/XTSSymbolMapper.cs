@@ -85,21 +85,5 @@ namespace QuantConnect.Brokerages.XTS
             }
             return SecurityType.Base;
         }
-
-
-        public List<ContractInfo> GetXTSInstrumentIdList(string symbol)
-        {
-            List<ContractInfo> list = new();
-            var contract = XTSInstrumentList.GetListofInstrumentIDfromList(symbol);
-            if(contract != null)
-            {
-                list.Add(contract);
-            }
-            if (list.IsNullOrEmpty())
-            {
-                throw new Exception($"SamcoSymbolMapper.GetSamcoTokenList(): symbol not found for given ticker {symbol}");
-            }
-            return list;
-        }
     }
 }
