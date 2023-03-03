@@ -31,12 +31,14 @@ using Newtonsoft.Json;
 using QuantConnect.XTSBrokerage;
 using XTSAPI.MarketData;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace QuantConnect.XTSBrokerages.Tests
 {
     [TestFixture]
     public partial class XTSBrokerageTests : BrokerageTests
     {
+        private Symbol testSymbol;
         protected override Symbol Symbol => Symbols.SBIN;
         /// <summary>
         /// Gets the security type associated with the <see cref="BrokerageTests.Symbol"/>
@@ -46,6 +48,9 @@ namespace QuantConnect.XTSBrokerages.Tests
         long[] instrumnts = { 26000, 26001, 26002, 26003 } ;
         protected override IBrokerage CreateBrokerage(IOrderProvider orderProvider, ISecurityProvider securityProvider)
         {
+            var data = XTSInstrumentList.Instance();
+            var testcontract = XTSInstrumentList.GetContractInfoFromInstrumentID(10666);
+            var testSymbol = XTSInstrumentList.CreateLeanSymbol(testcontract);
             var securities = new SecurityManager(new TimeKeeper(DateTime.UtcNow, TimeZones.Kolkata))
             {
                 { Symbol, CreateSecurity(Symbol) }
@@ -67,7 +72,7 @@ namespace QuantConnect.XTSBrokerages.Tests
             var productType = Config.Get("xts-product-type");
             var xts = new XtsBrokerage(tradingSegment, productType, interactiveSecretKey,
             interactiveapiKey, marketSecretKey, marketApiKey, algorithm.Object, new AggregationManager());
-            var data = XTSInstrumentList.Instance();
+            
             foreach (var instrument in instrumnts)
             {
                 var contract = XTSInstrumentList.GetContractInfoFromInstrumentID(instrument);
@@ -81,6 +86,7 @@ namespace QuantConnect.XTSBrokerages.Tests
             }
             xts.Subscribe(_symbols);
             Console.WriteLine(_symbols.Count);
+            Thread.Sleep(15000);
             return xts;
         }
 

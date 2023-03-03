@@ -35,6 +35,7 @@ namespace QuantConnect.XTSBrokerage
             _contractMapToLeanSymbol= new Dictionary<ContractInfo, Symbol>();
             _leanSymbolToContractMap = new Dictionary<Symbol, ContractInfo>();
             _instrumentIDToContractInfo = new Dictionary<long, ContractInfo>();
+            _XTSInstrumentIDToLeanSymbol = new Dictionary<long, Symbol>();
 
             {
                 updateData();
